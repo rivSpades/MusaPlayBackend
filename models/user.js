@@ -19,10 +19,37 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'default.jpg',
   },
-  profile: {
+  userType: {
     type: String,
     enum: ['client', 'talent'],
   },
+
+  profile: {
+    type: {
+      type: String,
+      enum: ['project', 'individual'],
+      validate: {
+        validator: function () {
+          return this.userType === 'talent';
+        },
+        message: 'Profiles can only be set for talent users.',
+      },
+    },
+  },
+
+  availability: [
+    {
+      day: { type: Date, required: true },
+      isAvailable: { type: Boolean, default: true },
+      validate: {
+        validator: function () {
+          return this.userType === 'talent';
+        },
+        message: 'Availability days  can only be set by talent users.',
+      },
+    },
+  ],
+
   password: {
     type: String,
     required: [true, 'Please provide a password'],
@@ -50,6 +77,8 @@ const userSchema = new mongoose.Schema({
   },
 });
 
+/*MIDDLEWARES*/
+
 userSchema.pre('save', async function (next) {
   // Only run this function if password was actually modified
   if (!this.isModified('password')) return next();
@@ -69,11 +98,7 @@ userSchema.pre('save', function (next) {
   next();
 });
 
-userSchema.pre(/^find/, function (next) {
-  // this points to the current query
-  this.find({ active: { $ne: false } });
-  next();
-});
+/*CUSTOM METHODS*/
 
 userSchema.methods.correctPassword = async function (
   candidatePassword,
@@ -109,6 +134,26 @@ userSchema.methods.createPasswordResetToken = function () {
   this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
 
   return resetToken;
+};
+
+userSchema.methods.findAvailableUsers = async function (date) {
+  const availableUsers = await this.constructor.find({
+    userType: 'talent',
+    availability: {
+      $elemMatch: {
+        day: date,
+        isAvailable: true,
+      },
+    },
+  });
+  return availableUsers;
+};
+
+userSchema.methods.updateAvailability = async function (date, isAvailable) {
+  await this.constructor.updateOne(
+    { email: this.email, 'availability.day': date },
+    { $set: { 'availability.$.isAvailable': isAvailable } }
+  );
 };
 
 const User = mongoose.model('User', userSchema);
