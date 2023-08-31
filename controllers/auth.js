@@ -1,9 +1,10 @@
-const User = require('./../models/userModel');
+const User = require('./../models/user');
 const catchAsync = require('./../utils/catchAsync');
-const Email = require('./../utils/email');
+const Email = require('./../services/email');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const AppError = require('./../utils/appError');
+const mongoose = require('mongoose');
 
 const getJWTToken = (id) => {
   return jwt.sign({ id: id }, process.env.JWT_SECRET, {
@@ -55,11 +56,11 @@ exports.signup = catchAsync(async (req, res, next) => {
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
   });
-
+  console.log(newUser);
   const url = `${req.protocol}://${req.get('host')}/myDetails`;
   await new Email(newUser, url).sendWelcome(); //send welcome email to the user
 
-  sendJWTTokenCookie = (newUser, 201, req, res);
+  sendJWTTokenCookie(newUser, 201, req, res);
 });
 
 exports.login = catchAsync(async (req, res, next) => {
@@ -72,7 +73,7 @@ exports.login = catchAsync(async (req, res, next) => {
 
   // Find the user by their email and select the password field
   const user = await User.findOne({ email }).select('+password');
-
+  console.log(user);
   if (!user || !(await user.checkPassword(password, user.password))) {
     // If the user is not found or the password doesn't match, return an error
     return next(new AppError('Incorrect email or password', 401));
@@ -152,7 +153,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   // Build the reset URL
   const buildResetURL = `${req.protocol}://${req.get(
     'host'
-  )}/api/v1/users/resetPassword/${resetToken}`;
+  )}/user/resetPassword/${resetToken}`;
 
   try {
     // Send password reset email
@@ -173,6 +174,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
 });
 
 exports.resetPassword = catchAsync(async (req, res, next) => {
+  console.log('entra qui');
   const hashedToken = crypto
     .createHash('sha256')
     .update(req.params.token)
@@ -183,6 +185,7 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
     passwordResetToken: hashedToken,
     passwordResetExpires: { $gt: Date.now() }, // Check if expiration date is greater than current time
   });
+  console.log(user);
 
   if (!user) {
     return next(new AppError('Token is invalid or has expired', 400));

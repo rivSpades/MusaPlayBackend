@@ -28,12 +28,6 @@ const userSchema = new mongoose.Schema({
     type: {
       type: String,
       enum: ['project', 'individual'],
-      validate: {
-        validator: function () {
-          return this.userType === 'talent';
-        },
-        message: 'Profiles can only be set for talent users.',
-      },
     },
   },
 
@@ -41,12 +35,6 @@ const userSchema = new mongoose.Schema({
     {
       day: { type: Date, required: true },
       isAvailable: { type: Boolean, default: true },
-      validate: {
-        validator: function () {
-          return this.userType === 'talent';
-        },
-        message: 'Availability days  can only be set by talent users.',
-      },
     },
   ],
 
@@ -59,13 +47,6 @@ const userSchema = new mongoose.Schema({
   passwordConfirm: {
     type: String,
     required: [true, 'Please confirm your password'],
-    validate: {
-      // This only works on CREATE and SAVE!!!
-      validator: function (el) {
-        return el === this.password;
-      },
-      message: 'Passwords are not the same!',
-    },
   },
   passwordChangedAt: Date,
   passwordResetToken: String,
@@ -100,6 +81,14 @@ userSchema.pre('save', function (next) {
 
 /*CUSTOM METHODS*/
 
+userSchema.methods.checkPassword = async function (
+  inputPassword,
+  hashedPassword
+) {
+  //.methods allows to create a custom method in the document level "checkPassword". This method will be avaliable and can be used for  all the documents
+  return await bcrypt.compare(inputPassword, hashedPassword); //Returns true or false. "compare" is a method from bcrypt that compares if the password original password matches with the hashed password.
+};
+
 userSchema.methods.correctPassword = async function (
   candidatePassword,
   userPassword
@@ -132,6 +121,21 @@ userSchema.methods.createPasswordResetToken = function () {
   // console.log({ resetToken }, this.passwordResetToken);
 
   this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+
+  return resetToken;
+};
+
+userSchema.methods.generateResetToken = function () {
+  //this method will generate a random 32 chars long token and saves an encrypted version of the token in the DB
+
+  const resetToken = crypto.randomBytes(32).toString('hex'); //generates a token with 32 chars long. This will be sent to the user and won't be saved in DB
+
+  this.passwordResetToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex'); //saves and encrypted version of the resetToken in the DB
+
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000; //10 min of expiration
 
   return resetToken;
 };
