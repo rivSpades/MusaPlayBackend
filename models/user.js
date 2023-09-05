@@ -3,59 +3,174 @@ const mongoose = require('mongoose');
 const validator = require('validator');
 const bcrypt = require('bcryptjs');
 
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Please tell us your name!'],
-  },
-  email: {
-    type: String,
-    required: [true, 'Please provide your email'],
-    unique: true,
-    lowercase: true,
-    validate: [validator.isEmail, 'Please provide a valid email'],
-  },
-  photo: {
-    type: String,
-    default: 'default.jpg',
-  },
-  userType: {
-    type: String,
-    enum: ['client', 'talent'],
-  },
+const userSchema = new mongoose.Schema(
+  {
+    firstName: {
+      type: String,
+      required: [true, 'Please tell us your first name!'],
+    },
+    lastName: {
+      type: String,
+      required: [true, 'Please tell us your last name!'],
+    },
+    email: {
+      type: String,
+      required: [true, 'Please provide your email'],
+      unique: true,
+      lowercase: true,
+      validate: [validator.isEmail, 'Please provide a valid email'],
+    },
+    birthDate: {
+      type: { type: Date },
+    },
+    phone: {
+      type: Number,
+    },
+    vat: {
+      type: Number,
+      maxlength: 9,
+    },
+    cc: {
+      type: Number,
+      maxlength: 8,
+    },
+    media: {
+      profilePicture: {
+        type: String,
+        default: 'default.jpg',
+      },
+      videos: [
+        {
+          videoUrl: {
+            type: String,
+          },
+          duration: {
+            type: Number,
+            max: 30,
+          },
+        },
 
-  profile: {
+        {
+          validator: function () {
+            return this.media.videos.length <= 3;
+          },
+          message: 'Cannot have more than 3 videos',
+        },
+      ],
+    },
+
     type: {
       type: String,
-      enum: ['project', 'individual'],
-    },
-  },
 
-  availability: [
-    {
-      day: { type: Date, required: true },
+      enum: ['client', 'talent'],
+    },
+
+    profile: {
+      type: String,
+      enum: ['project', 'individual'],
+      validate: {
+        validator: function () {
+          return this.type === 'talent';
+        },
+        message: 'Client users cannot change profile',
+      },
+    },
+
+    verification: {
+      emailVerified: {
+        type: Boolean,
+        default: false,
+      },
+      phoneVerified: {
+        type: Boolean,
+        default: false,
+      },
+      ccVerified: {
+        type: Boolean,
+        default: false,
+      },
+      vatVerified: {
+        type: Boolean,
+        default: false,
+      },
+    },
+
+    address: {
+      street: {
+        type: String,
+        maxlength: 100,
+      },
+      city: {
+        type: String,
+        maxlength: 100,
+      },
+      district: {
+        type: String,
+        enum: [
+          'Aveiro',
+          'Beja',
+          'Braga',
+          'Bragança',
+          'Castelo Branco',
+          'Coimbra',
+          'Évora',
+          'Faro',
+          'Guarda',
+          'Leiria',
+          'Lisboa',
+          'Portalegre',
+          'Porto',
+          'Santarém',
+          'Setúbal',
+          'Viana do Castelo',
+          'Vila Real',
+          'Viseu',
+        ],
+      },
+    },
+
+    availability: {
+      day: { type: Date },
       isAvailable: { type: Boolean, default: true },
     },
-  ],
 
-  password: {
-    type: String,
-    required: [true, 'Please provide a password'],
-    minlength: 8,
-    select: false,
+    password: {
+      type: String,
+      required: [true, 'Please provide a password'],
+      minlength: 8,
+      select: false,
+    },
+    passwordConfirm: {
+      type: String,
+      required: [true, 'Please confirm your password'],
+    },
+    passwordChangedAt: Date,
+    passwordResetToken: String,
+    passwordResetExpires: Date,
+    active: {
+      type: Boolean,
+      default: true,
+      select: false,
+    },
   },
-  passwordConfirm: {
-    type: String,
-    required: [true, 'Please confirm your password'],
-  },
-  passwordChangedAt: Date,
-  passwordResetToken: String,
-  passwordResetExpires: Date,
-  active: {
-    type: Boolean,
-    default: true,
-    select: false,
-  },
+
+  {
+    toJSON: { virtuals: true }, //we need to allow virtuals fields show in the  Output JSON sent in the response
+    toObject: { virtuals: true }, // also in a object format
+  }
+);
+
+/*VIRTUAL FIELDS */
+userSchema.virtual('verified').get(function () {
+  if (
+    this.verification.emailVerified &&
+    this.verification.phoneVerified &&
+    this.verification.ccVerified &&
+    this.verification.vatVerified
+  )
+    return true;
+
+  return false;
 });
 
 /*MIDDLEWARES*/
@@ -142,7 +257,7 @@ userSchema.methods.generateResetToken = function () {
 
 userSchema.methods.findAvailableUsers = async function (date) {
   const availableUsers = await this.constructor.find({
-    userType: 'talent',
+    type: 'talent',
     availability: {
       $elemMatch: {
         day: date,
