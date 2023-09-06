@@ -152,6 +152,10 @@ const userSchema = new mongoose.Schema(
       default: true,
       select: false,
     },
+    createdOn: {
+      type: Date,
+      default: Date.now,
+    },
   },
 
   {

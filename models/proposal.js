@@ -24,6 +24,51 @@ const proposalSchema = new mongoose.Schema({
       message: 'Event genres can have at most 5 items.',
     },
   },
+  eventDescription: {
+    type: String,
+    maxlength: 500,
+  },
+
+  eventAddress: {
+    street: {
+      type: String,
+      required: true,
+      maxlength: 100,
+    },
+    city: {
+      type: String,
+      required: true,
+      maxlength: 100,
+    },
+    zipCode: {
+      type: String,
+      required: true,
+    },
+    district: {
+      type: String,
+      required: true,
+      enum: [
+        'Aveiro',
+        'Beja',
+        'Braga',
+        'Bragança',
+        'Castelo Branco',
+        'Coimbra',
+        'Évora',
+        'Faro',
+        'Guarda',
+        'Leiria',
+        'Lisboa',
+        'Portalegre',
+        'Porto',
+        'Santarém',
+        'Setúbal',
+        'Viana do Castelo',
+        'Vila Real',
+        'Viseu',
+      ],
+    },
+  },
   eventStartTime: {
     type: Date, // Store the full date and time
     required: true,
@@ -31,6 +76,38 @@ const proposalSchema = new mongoose.Schema({
   eventEndTime: {
     type: Date, // Store the full date and time
     required: true,
+  },
+  eventPrice: {
+    priceType: {
+      type: String,
+      enum: ['fixed', 'negotiable'],
+    },
+    amount: {
+      type: Number,
+    },
+    includedCosts: {
+      Stay: {
+        type: Boolean,
+      },
+      Food: {
+        type: Boolean,
+      },
+      Travel: {
+        type: Boolean,
+      },
+      Gear: {
+        type: Boolean,
+      },
+      Other: {
+        type: String,
+        maxlength: 500,
+      },
+    },
+  },
+
+  eventExtraInfo: {
+    type: String,
+    maxlength: 500,
   },
 
   createdOn: {
@@ -51,9 +128,6 @@ const proposalSchema = new mongoose.Schema({
       message: 'Payment amount must be more than 0.',
     },
   },
-
-  eventDescription: String,
-  // Add other fields relevant to proposals
 });
 
 const Proposal = mongoose.model('Proposal', proposalSchema);
