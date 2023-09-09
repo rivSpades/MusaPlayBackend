@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 const proposalSchema = new mongoose.Schema({
-  user: {
+  userFrom: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  userTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
@@ -8,7 +13,7 @@ const proposalSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ['pending', 'accepted', 'rejected'],
+    enum: ['pending', 'accepted', 'rejected', 'completed', 'cancelled'],
     default: 'pending',
   },
   eventType: {
