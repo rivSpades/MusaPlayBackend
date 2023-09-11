@@ -129,11 +129,6 @@ const userSchema = new mongoose.Schema(
       },
     },
 
-    availability: {
-      day: { type: Date },
-      isAvailable: { type: Boolean, default: true },
-    },
-
     password: {
       type: String,
       required: [true, 'Please provide a password'],

@@ -36,6 +36,16 @@ reviewSchema.pre('save', async function (next) {
     return next(error);
   }
 
+  if (
+    !proposal.userFrom.equals(this.user) &&
+    !proposal.userTo.equals(this.user)
+  ) {
+    const error = new Error(
+      'You can only review users from the same proposal.'
+    );
+    return next(error);
+  }
+
   next();
 });
 
