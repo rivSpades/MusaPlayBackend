@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
+const AppError = require('../utils/appError');
 
 const reviewSchema = new mongoose.Schema({
   text: {
     type: String,
-
     maxlength: 500,
   },
   rating: {
@@ -30,20 +30,18 @@ reviewSchema.pre('save', async function (next) {
   const proposal = await Proposal.findById(this.proposal);
 
   if (!proposal || proposal.status !== 'completed') {
-    const error = new Error(
-      'Reviews can only be saved for completed proposals.'
+    return next(
+      new AppError('Reviews can only be saved for completed proposals.', 400)
     );
-    return next(error);
   }
 
   if (
     !proposal.userFrom.equals(this.user) &&
     !proposal.userTo.equals(this.user)
   ) {
-    const error = new Error(
-      'You can only review users from the same proposal.'
+    return next(
+      new AppError('You can only review users from the same proposal.', 400)
     );
-    return next(error);
   }
 
   next();
