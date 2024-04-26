@@ -13,6 +13,7 @@ const hpp = require('hpp');
 const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const rateLimit = require('express-rate-limit');
+const cors = require('cors');
 
 app.use(helmet());
 
@@ -29,6 +30,8 @@ app.use(helmet());
     ]
   })
 )*/
+
+app.use(cors()); //allow access to all urls to everyone (get , post)
 
 app.use(hpp()); //no paramater duplication
 

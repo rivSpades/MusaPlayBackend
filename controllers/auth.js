@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const AppError = require('./../utils/appError');
 const mongoose = require('mongoose');
+const { promisify } = require('util');
 
 const getJWTToken = (id) => {
   return jwt.sign({ id: id }, process.env.JWT_SECRET, {
@@ -48,10 +49,13 @@ const sendJWTTokenCookie = (user, statusCode, req, res) => {
 
 exports.signup = catchAsync(async (req, res, next) => {
   //function that handles the signup
-
+  const fullName = req.body.name;
+  const [firstName, lastName] = fullName.split(' ');
   const newUser = await User.create({
     //only select the fields that we need to save in DB instead saving the whole body to avoid exploits
-    name: req.body.name,
+    name: fullName,
+    firstName: firstName,
+    lastName: lastName,
     email: req.body.email,
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
@@ -60,7 +64,7 @@ exports.signup = catchAsync(async (req, res, next) => {
   });
 
   const url = `${req.protocol}://${req.get('host')}/myDetails`;
-  await new Email(newUser, url).sendWelcome(); //send welcome email to the user
+  //await new Email(newUser, url).sendWelcome(); //send welcome email to the user
 
   sendJWTTokenCookie(newUser, 201, req, res);
 });
@@ -88,12 +92,14 @@ exports.login = catchAsync(async (req, res, next) => {
 exports.isLoggedIn = catchAsync(async (req, res, next) => {
   // 1. Get the token from the request header or cookies
   let token;
-
+  console.log(req.headers);
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
   ) {
+    console.log(req.headers.authorization);
     token = req.headers.authorization.split(' ')[1];
+    console.log(token);
   } else if (req.cookies.jwt) {
     token = req.cookies.jwt;
   }
@@ -109,6 +115,8 @@ exports.isLoggedIn = catchAsync(async (req, res, next) => {
     token,
     process.env.JWT_SECRET
   );
+
+  console.log(verifyToken);
 
   // 3. Check if the user still exists
   const currentUser = await User.findById(verifyToken.id);
