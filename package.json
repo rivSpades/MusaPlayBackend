@@ -5,7 +5,8 @@
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "start": "node server.js"
   },
   "repository": {
     "type": "git",
@@ -26,8 +27,10 @@
     "express-mongo-sanitize": "^2.2.0",
     "express-rate-limit": "^7.0.0",
     "helmet": "^7.0.0",
+    "heroku": "^8.11.4",
     "hpp": "^0.2.3",
     "html-to-text": "^9.0.5",
+    "http": "^0.0.1-security",
     "jsonwebtoken": "^9.0.1",
     "mongoose": "^7.5.0",
     "nodemailer": "^6.9.4",
@@ -38,5 +41,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=10.0.0"
   }
 }
