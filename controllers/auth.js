@@ -36,7 +36,7 @@ const sendJWTTokenCookie = (user, statusCode, req, res) => {
 
   res.cookie('jwt', token, cookieOptions); //sends cookie to the client
 
-  user.password = undefined; //removes the password from the output setting to undefined but won't save it on the db because we dont commit with .save()
+  user.password = undefined; //removes the password from the output setting to undefined but won't save it on the db because we dont commit with .save
 
   res.status(statusCode).json({
     status: 'success',
