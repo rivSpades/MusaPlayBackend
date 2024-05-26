@@ -1,6 +1,7 @@
 const User = require('./../models/user');
 const catchAsync = require('./../utils/catchAsync');
 const Email = require('./../services/email');
+const Mobile = require('./../services/mobile');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const AppError = require('./../utils/appError');
@@ -57,15 +58,23 @@ exports.signup = catchAsync(async (req, res, next) => {
     firstName: firstName,
     lastName: lastName,
     email: req.body.email,
+    mobile: req.body.mobile,
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
     profile: req.body.profile,
     type: req.body.type,
   });
+  const code = await newUser.generateVerificationCode();
+  newUser.emailVerificationCode = code;
+  newUser.emailVerificationExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
 
-  const url = `${req.protocol}://${req.get('host')}/myDetails`;
-  //await new Email(newUser, url).sendWelcome(); //send welcome email to the user
+  await newUser.save({ validateBeforeSave: false });
 
+  const verificationURL = `${req.protocol}://${req.get('host')}/verify-email/`;
+  //await new Email(newUser, verificationURL).sendEmailVerification();
+  //const url = `${req.protocol}://${req.get('host')}/myDetails`;
+  //await new Email(newUser, verificationURL).sendWelcome(); //send welcome email to the user
+  await new Email(newUser, verificationURL).sendGrid(); //send welcome email to the user
   sendJWTTokenCookie(newUser, 201, req, res);
 });
 
@@ -136,6 +145,125 @@ exports.isLoggedIn = catchAsync(async (req, res, next) => {
   res.locals.user = currentUser; // This can be used in templates
 
   next(); // Move to the next middleware (e.g., grantPermissions)
+});
+
+exports.verify = catchAsync(async (req, res, next) => {
+  // Find the user by email
+  const user = req.user;
+  console.log(user.emailVerificationCode);
+  // Check if user exists and if their email is verified
+
+  if (!user.verification.emailVerified && user.emailVerificationCode) {
+    const { emailCode } = req.body;
+    emailVerified = await user.confirmEmail(emailCode);
+    if (emailVerified) {
+      const code = await user.generateVerificationCode();
+      user.mobileVerificationCode = code;
+      await user.save({ validateBeforeSave: false });
+      await new Mobile(user).sendWelcome();
+      return res.status(200).json({
+        status: 'success',
+        message: 'Email verified',
+        userVerified: user.verified,
+        data: {
+          emailVerificationCode: user.emailVerificationCode && true,
+          emailVerified: user.verification.emailVerified,
+          emailCodeExpired: user.emailVerificationExpires > Date.now(),
+          mobileVerified: user.verification.mobileVerified,
+          mobileVerificationCode: user.mobileVerificationCode && true,
+        },
+      });
+    } else {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Code not correct',
+      });
+    }
+  } else if (!user.verification.mobileVerified && user.mobileVerificationCode) {
+    const { mobileCode } = req.body;
+    console.log(req.body);
+    console.log(mobileCode);
+    mobileVerified = await user.confirmMobile(mobileCode);
+
+    if (mobileVerified) {
+      return res.status(200).json({
+        status: 'success',
+        message: 'Mobile Verified',
+        userVerified: user.verified,
+        data: {
+          emailVerificationCode: user.emailVerificationCode && true,
+          emailVerified: user.verification.emailVerified,
+          emailCodeExpired: user.emailVerificationExpires > Date.now(),
+          mobileVerified: user.verification.mobileVerified,
+          mobileVerificationCode: user.mobileVerificationCode && true,
+        },
+      });
+    } else {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Code not correct',
+      });
+    }
+  } else if (
+    user.verification.mobileVerified &&
+    user.verification.emailVerified &&
+    !user.verification.myDetailsVerified
+  ) {
+    console.log(req.body);
+    const {
+      fullName,
+      birthDate,
+      gender,
+      postalCode,
+      street,
+      streetNumber,
+      city,
+      district,
+      state,
+    } = req.body;
+
+    const nameParts = fullName.split(' ');
+
+    user.firstName = user.firstName = nameParts[0] || user.firstName;
+    user.lastName = nameParts.slice(1).join(' ') || user.lastName;
+    user.birthDate = birthDate || user.birthDate;
+    user.gender = gender || user.gender;
+    user.address = {
+      street: street || user.address.street,
+      streetNumber: streetNumber || user.address.streetNumber,
+      postalCode: postalCode || user.address.postalCode,
+      city: city || user.address.city,
+      district: district || user.address.district,
+      state: state || user.address.state,
+    };
+
+    user.verification.myDetailsVerified = true;
+    await user.save({ validateBeforeSave: false });
+    return res.status(200).json({
+      status: 'success',
+      message: 'User details verified',
+      userVerified: user.verified,
+      data: {
+        emailVerificationCode: !!user.emailVerificationCode,
+        emailVerified: user.verification.emailVerified,
+        emailCodeExpired: user.emailVerificationExpires > Date.now(),
+        mobileVerified: user.verification.mobileVerified,
+        mobileVerificationCode: !!user.mobileVerificationCode,
+      },
+    });
+  }
+
+  return res.status(200).json({
+    status: 'success',
+    userVerified: user.verified,
+    data: {
+      emailVerificationCode: user.emailVerificationCode && true,
+      emailVerified: user.verification.emailVerified,
+      emailCodeExpired: user.emailVerificationExpires > Date.now(),
+      mobileVerified: user.verification.mobileVerified,
+      mobileVerificationCode: user.mobileVerificationCode && true,
+    },
+  });
 });
 
 exports.logout = (req, res) => {

@@ -1,12 +1,37 @@
 const nodemailer = require('nodemailer'); //npm install nodemailer
-const htmlToText = require('html-to-text'); //npm install html-to-text
 
+const sgMail = require('@sendgrid/mail');
 module.exports = class Email {
-  constructor(user, url) {
+  constructor(user, url = '') {
     this.to = user.email;
-    this.firstName = user.name.split(' ')[0];
+    console.log(user);
+    this.firstName = user.firstName;
     this.url = url;
-    this.from = `Jonas Schmedtmann <${process.env.EMAIL_FROM}>`;
+    this.verificationCode = user.emailVerificationCode;
+    this.from = `${process.env.EMAIL_FROM}`;
+  }
+
+  async sendGrid() {
+    const htmlContent =
+      '<p>Hello ' +
+      this.firstName +
+      `, welcome to Musa Platform</p><p>Please confirm your e-mail by entering this code:</p> <p>${this.verificationCode}</p>`; // Your HTML content here
+
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    const msg = {
+      to: this.to, // Use the instance variable
+      from: this.from, // Use the instance variable
+      subject: 'Musa Welcome',
+      text: 'and easy to do anywhere, even with Node.js',
+      html: htmlContent,
+    };
+
+    try {
+      await sgMail.send(msg);
+      console.log('Email sent');
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   newTransport() {
@@ -41,7 +66,10 @@ module.exports = class Email {
     // Create a customized method for welcome emails
     const subject = 'Welcome to the Musa Platform!';
     const htmlContent =
-      '<p>Hello ' + this.firstName + ', welcome to Musa Platform</p>'; // Your HTML content here
+      '<p>Hello ' +
+      this.firstName +
+      `, welcome to Musa Platform</p><p>Please confirm your e-mail by putting this code</P> <p>${this.verificationCode}</p>`; // Your HTML content here
+
     await this.send(subject, htmlContent);
   }
 

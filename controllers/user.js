@@ -17,7 +17,14 @@ exports.getMyDetails = async (req, res, next) => {
     res.status(200).json({
       status: 'success',
       data: {
-        user: { firstName: user.firstName, lastName: user.lastName },
+        user: {
+          firstName: user.firstName,
+          lastName: user.lastName,
+          verification: user.verification,
+          verified: user.verified,
+          emailVerificationCode: user.emailVerificationCode && true,
+          mobileVerificationCode: user.mobileVerificationCode && true,
+        },
       },
     });
   } catch (err) {

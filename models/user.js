@@ -19,84 +19,35 @@ const userSchema = new mongoose.Schema(
       validate: [validator.isEmail, 'Please provide a valid email'],
     },
     birthDate: {
-      type: { type: Date },
+      type: Date,
     },
-    phone: {
-      type: Number,
+    mobile: {
+      type: String,
     },
     vat: {
-      type: Number,
+      type: String,
       maxlength: 9,
     },
     cc: {
-      type: Number,
+      type: String,
       maxlength: 8,
     },
-    media: {
-      profilePicture: {
-        type: String,
-        default: 'default.jpg',
-      },
-      videos: [
-        {
-          videoUrl: {
-            type: String,
-          },
-          duration: {
-            type: Number,
-            max: 30,
-          },
-        },
-
-        {
-          validator: function () {
-            return this.media.videos.length <= 3;
-          },
-          message: 'Cannot have more than 3 videos',
-        },
-      ],
-    },
-
-    type: {
+    gender: {
       type: String,
-
-      enum: ['client', 'talent'],
+      enum: ['male', 'female', 'other'],
     },
-
-    profile: {
-      type: String,
-      enum: ['project', 'individual'],
-      validate: {
-        validator: function () {
-          return this.type === 'talent';
-        },
-        message: 'Client users cannot change profile',
-      },
-    },
-
-    verification: {
-      emailVerified: {
-        type: Boolean,
-        default: false,
-      },
-      phoneVerified: {
-        type: Boolean,
-        default: false,
-      },
-      ccVerified: {
-        type: Boolean,
-        default: false,
-      },
-      vatVerified: {
-        type: Boolean,
-        default: false,
-      },
-    },
-
     address: {
       street: {
         type: String,
         maxlength: 100,
+      },
+      streetNumber: {
+        type: String,
+        maxlength: 10,
+      },
+      postalCode: {
+        type: String,
+        maxlength: 20,
       },
       city: {
         type: String,
@@ -125,8 +76,64 @@ const userSchema = new mongoose.Schema(
           'Viseu',
         ],
       },
+      state: {
+        type: String,
+        maxlength: 100,
+      },
     },
-
+    media: {
+      profilePicture: {
+        type: String,
+        default: 'default.jpg',
+      },
+      videos: [
+        {
+          videoUrl: {
+            type: String,
+          },
+          duration: {
+            type: Number,
+            max: 30,
+          },
+        },
+      ],
+    },
+    type: {
+      type: String,
+      enum: ['client', 'talent'],
+    },
+    profile: {
+      type: String,
+      enum: ['project', 'individual'],
+      validate: {
+        validator: function () {
+          return this.type === 'talent';
+        },
+        message: 'Client users cannot change profile',
+      },
+    },
+    verification: {
+      emailVerified: {
+        type: Boolean,
+        default: false,
+      },
+      mobileVerified: {
+        type: Boolean,
+        default: false,
+      },
+      myDetailsVerified: {
+        type: Boolean,
+        default: false,
+      },
+      ccVerified: {
+        type: Boolean,
+        default: false,
+      },
+      vatVerified: {
+        type: Boolean,
+        default: false,
+      },
+    },
     password: {
       type: String,
       required: [true, 'Please provide a password'],
@@ -136,10 +143,19 @@ const userSchema = new mongoose.Schema(
     passwordConfirm: {
       type: String,
       required: [true, 'Please confirm your password'],
+      validate: {
+        validator: function (el) {
+          return el === this.password;
+        },
+        message: 'Passwords are not the same!',
+      },
     },
     passwordChangedAt: Date,
     passwordResetToken: String,
     passwordResetExpires: Date,
+    emailVerificationCode: String,
+    mobileVerificationCode: String,
+    emailVerificationExpires: Date,
     active: {
       type: Boolean,
       default: true,
@@ -149,11 +165,16 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    availability: [
+      {
+        day: Date,
+        isAvailable: Boolean,
+      },
+    ],
   },
-
   {
-    toJSON: { virtuals: true }, //we need to allow virtuals fields show in the  Output JSON sent in the response
-    toObject: { virtuals: true }, // also in a object format
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 
@@ -162,8 +183,7 @@ userSchema.virtual('verified').get(function () {
   if (
     this.verification.emailVerified &&
     this.verification.phoneVerified &&
-    this.verification.ccVerified &&
-    this.verification.vatVerified
+    this.verification.myDetailsVerified
   )
     return true;
 
@@ -222,21 +242,6 @@ userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
   return false;
 };
 
-userSchema.methods.createPasswordResetToken = function () {
-  const resetToken = crypto.randomBytes(32).toString('hex');
-
-  this.passwordResetToken = crypto
-    .createHash('sha256')
-    .update(resetToken)
-    .digest('hex');
-
-  // console.log({ resetToken }, this.passwordResetToken);
-
-  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
-
-  return resetToken;
-};
-
 userSchema.methods.generateResetToken = function () {
   //this method will generate a random 32 chars long token and saves an encrypted version of the token in the DB
 
@@ -250,6 +255,46 @@ userSchema.methods.generateResetToken = function () {
   this.passwordResetExpires = Date.now() + 10 * 60 * 1000; //10 min of expiration
 
   return resetToken;
+};
+
+userSchema.methods.generateVerificationCode = function () {
+  const verificationCode = generateRandomCode(5);
+
+  return verificationCode;
+};
+
+function generateRandomCode(length) {
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    code += Math.floor(Math.random() * 10); // Generate a random digit between 0 and 9
+  }
+  return code;
+}
+
+// Method for confirming email address
+userSchema.methods.confirmEmail = async function (code) {
+  if (
+    this.emailVerificationCode &&
+    this.emailVerificationCode === code &&
+    this.emailVerificationExpires > Date.now()
+  ) {
+    this.verification.emailVerified = true; // Update the emailVerified field under verification object
+    this.emailVerificationCode = undefined;
+    this.emailVerificationExpires = undefined;
+    await this.save({ validateBeforeSave: false });
+    return true;
+  }
+  return false;
+};
+
+userSchema.methods.confirmMobile = async function (code) {
+  if (this.mobileVerificationCode && this.mobileVerificationCode === code) {
+    this.verification.mobileVerified = true; // Update the emailVerified field under verification object
+    this.mobileVerificationCode = undefined;
+    await this.save({ validateBeforeSave: false });
+    return true;
+  }
+  return false;
 };
 
 userSchema.methods.findAvailableUsers = async function (date) {
